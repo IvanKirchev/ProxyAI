@@ -15,6 +15,7 @@ class InfillRequest private constructor(
     val prefix: String,
     val suffix: String,
     val caretOffset: Int,
+    val requestId: String,
     val fileDetails: FileDetails?,
     val repositoryName: String?,
     val dependenciesStructure: Set<ClassStructure>?,
@@ -28,6 +29,7 @@ class InfillRequest private constructor(
         private val prefix: String
         private val suffix: String
         private val caretOffset: Int
+        private val requestId: String
         private var fileDetails: FileDetails? = null
         private var additionalContext: String? = null
         private var repositoryName: String? = null
@@ -39,16 +41,19 @@ class InfillRequest private constructor(
             prefix: String,
             suffix: String,
             caretOffset: Int,
+            requestId: String
         ) {
             this.prefix = prefix
             this.suffix = suffix
             this.caretOffset = caretOffset
             this.stopTokens = getStopTokens()
+            this.requestId = requestId
         }
 
         constructor(
             document: Document,
             caretOffset: Int,
+            requestId: String
         ) {
             prefix =
                 document.getText(TextRange(0, caretOffset))
@@ -58,6 +63,7 @@ class InfillRequest private constructor(
                     .truncateText(MAX_PROMPT_TOKENS)
             this.caretOffset = caretOffset
             this.stopTokens = getStopTokens()
+            this.requestId = requestId
         }
 
         fun fileDetails(fileDetails: FileDetails) = apply { this.fileDetails = fileDetails }
@@ -99,6 +105,7 @@ class InfillRequest private constructor(
                 modifiedPrefix,
                 suffix,
                 caretOffset,
+                requestId,
                 fileDetails,
                 repositoryName,
                 dependenciesStructure,

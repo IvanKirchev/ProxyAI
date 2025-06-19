@@ -1,5 +1,6 @@
 package ee.carlrobert.codegpt.codecompletions
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.codeInsight.inline.completion.InlineCompletion
 import com.intellij.codeInsight.inline.completion.InlineCompletionEvent
 import com.intellij.codeInsight.inline.completion.InlineCompletionInsertEnvironment
@@ -8,13 +9,24 @@ import com.intellij.codeInsight.inline.completion.elements.InlineCompletionEleme
 import com.intellij.openapi.application.runInEdt
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.service
+import com.intellij.openapi.editor.Editor
 import ee.carlrobert.codegpt.CodeGPTKeys
 import ee.carlrobert.codegpt.codecompletions.edit.GrpcClientService
 import ee.carlrobert.codegpt.predictions.CodeSuggestionDiffViewer
+import ee.carlrobert.codegpt.settings.GeneralSettings
+import ee.carlrobert.codegpt.settings.service.custom.CustomServicesSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.nio.charset.StandardCharsets
+import java.util.Collections
+import java.util.HashMap
 
 class CodeCompletionInsertHandler : InlineCompletionInsertHandler {
 
@@ -22,6 +34,8 @@ class CodeCompletionInsertHandler : InlineCompletionInsertHandler {
         environment: InlineCompletionInsertEnvironment,
         elements: List<InlineCompletionElement>
     ) {
+        acceptRequest(environment.editor)
+
         val editor = environment.editor
         val remainingCompletion = CodeGPTKeys.REMAINING_CODE_COMPLETION.get(editor)
         if (remainingCompletion != null && remainingCompletion.partialCompletion.isNotEmpty()) {
@@ -63,5 +77,24 @@ class CodeCompletionInsertHandler : InlineCompletionInsertHandler {
                 }
             }
         }
+    }
+
+    private fun acceptRequest(editor: Editor) {
+        val requestId = CodeGPTKeys.CODE_COMPLETION_REQUEST_ID.get(editor)
+        val activeService = service<CustomServicesSettings>().state.active
+        val settings = activeService.codeCompletionSettings
+        val acceptCodeCompletionUrl = settings.url!! + "/$requestId/accept"
+        println("Accepting request with id: $acceptCodeCompletionUrl")
+        val requestBuilder = Request.Builder().url(acceptCodeCompletionUrl)
+        val requestBody = ObjectMapper()
+            .writerWithDefaultPrettyPrinter()
+            .writeValueAsString(mapOf("accepted" to true))
+            .toByteArray(StandardCharsets.UTF_8)
+            .toRequestBody("application/json".toMediaType())
+
+        val request = requestBuilder.post(requestBody).build()
+        val client = OkHttpClient()
+        val response = client.newCall(request).execute()
+        println("Accept Request Response: $response")
     }
 }

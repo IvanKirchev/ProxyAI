@@ -1,7 +1,7 @@
 <idea-plugin>
-    <id>ee.carlrobert.chatgpt</id>
-    <name>Proxy AI</name>
-    <vendor email="carlrobertoh@gmail.com" url="https://carlrobert.ee">Carl-Robert Linnupuu</vendor>
+    <id>com.paysafe.codepilot</id>
+    <name>Paysafe CodePilot</name>
+    <vendor email="ivan.kirchev@paysafe.com" url="https://carlrobert.ee">Ivan Kirhcev</vendor>
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.lang</depends>
     <depends optional="true" config-file="plugin-kotlin.xml">org.jetbrains.kotlin</depends>

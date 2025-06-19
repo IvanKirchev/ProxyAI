@@ -7,6 +7,7 @@ import com.intellij.codeInsight.inline.completion.suggestion.InlineCompletionSug
 import com.intellij.codeInsight.lookup.LookupManager
 import com.intellij.openapi.components.service
 import com.intellij.platform.workspace.storage.impl.cache.cache
+import ee.carlrobert.codegpt.CodeGPTKeys
 import ee.carlrobert.codegpt.CodeGPTKeys.REMAINING_CODE_COMPLETION
 import ee.carlrobert.codegpt.codecompletions.edit.GrpcClientService
 import ee.carlrobert.codegpt.settings.GeneralSettings
@@ -20,6 +21,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.emptyFlow
 import okhttp3.sse.EventSource
+import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -79,7 +81,10 @@ class DebouncedCodeCompletionProvider : DebouncedInlineCompletionProvider() {
                     return@channelFlow
                 }
 
-                val infillRequest = InfillRequestUtil.buildInfillRequest(request)
+                val requestId = UUID.randomUUID().toString()
+                CodeGPTKeys.CODE_COMPLETION_REQUEST_ID.set(editor, requestId)
+                val infillRequest = InfillRequestUtil.buildInfillRequest(request, requestId)
+
                 val call = project.service<CodeCompletionService>().getCodeCompletionAsync(
                     infillRequest,
                     CodeCompletionEventListener(request.editor, this)

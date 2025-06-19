@@ -14,9 +14,9 @@ import ee.carlrobert.codegpt.util.GitUtil
 
 object InfillRequestUtil {
 
-    suspend fun buildInfillRequest(request: InlineCompletionRequest): InfillRequest {
+    suspend fun buildInfillRequest(request: InlineCompletionRequest, requestId: String): InfillRequest {
         val caretOffset = readAction { request.editor.caretModel.offset }
-        val infillRequestBuilder = InfillRequest.Builder(request.document, caretOffset)
+        val infillRequestBuilder = InfillRequest.Builder(request.document, caretOffset, requestId)
             .fileDetails(
                 InfillRequest.FileDetails(
                     request.document.text,

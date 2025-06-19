@@ -7,6 +7,8 @@ import ee.carlrobert.codegpt.telemetry.TelemetryAction;
 import ee.carlrobert.llm.client.openai.completion.ErrorDetails;
 import okhttp3.sse.EventSource;
 
+import java.util.UUID;
+
 public class ToolwindowChatCompletionRequestHandler {
 
   private final Project project;
@@ -22,6 +24,7 @@ public class ToolwindowChatCompletionRequestHandler {
 
   public void call(ChatCompletionParameters callParameters) {
     try {
+      callParameters.setRequestId(UUID.randomUUID());
       eventSource = startCall(callParameters);
     } catch (TotalUsageExceededException e) {
       completionResponseEventListener.handleTokensExceeded(

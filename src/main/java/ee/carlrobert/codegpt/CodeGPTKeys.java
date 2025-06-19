@@ -27,4 +27,6 @@ public class CodeGPTKeys {
       Key.create("codegpt.remainingPredictionResponse");
   public static final Key<ToolWindowEditorFileDetails> TOOLWINDOW_EDITOR_FILE_DETAILS =
       Key.create("proxyai.toolwindowEditorFileDetails");
+  public static final Key<String> CODE_COMPLETION_REQUEST_ID =
+      Key.create("codegpt.codeCompletionRequestId");
 }
