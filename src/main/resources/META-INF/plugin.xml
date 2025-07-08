@@ -1,6 +1,6 @@
 <idea-plugin>
-    <id>ee.carlrobert.chatgpt</id>
-    <name>Proxy AI</name>
+    <id>com.paysafe.PaysafeCodepilot</id>
+    <name>Paysafe Codepilot</name>
     <vendor email="carlrobertoh@gmail.com" url="https://carlrobert.ee">Carl-Robert Linnupuu</vendor>
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.lang</depends>

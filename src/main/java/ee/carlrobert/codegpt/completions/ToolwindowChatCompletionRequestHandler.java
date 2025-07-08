@@ -5,9 +5,8 @@ import ee.carlrobert.codegpt.codecompletions.CompletionProgressNotifier;
 import ee.carlrobert.codegpt.settings.GeneralSettings;
 import ee.carlrobert.codegpt.telemetry.TelemetryAction;
 import ee.carlrobert.llm.client.openai.completion.ErrorDetails;
-import okhttp3.sse.EventSource;
-
 import java.util.UUID;
+import okhttp3.sse.EventSource;
 
 public class ToolwindowChatCompletionRequestHandler {
 
