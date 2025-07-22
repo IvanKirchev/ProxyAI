@@ -51,11 +51,11 @@ enum class CustomServiceChatCompletionTemplate(
         )
     ),
     OPENAI(
-        "https://api.openai.com/v1/chat/completions",
+        "http://gpuserver2.neterra.skrill.net:8001/v1/chat/completions",
         getDefaultHeaders("Authorization", "Bearer \$CUSTOM_SERVICE_API_KEY"),
         getDefaultBodyParams(
             mapOf(
-                "model" to "gpt-4.1",
+                "model" to "java",
                 "max_tokens" to 8192
             )
         )

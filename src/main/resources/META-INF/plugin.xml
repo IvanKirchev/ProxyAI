@@ -29,7 +29,7 @@
         <postStartupActivity implementation="ee.carlrobert.codegpt.CodeGPTProjectActivity"/>
         <postStartupActivity implementation="ee.carlrobert.codegpt.CodeGPTUpdateActivity"/>
         <editorFactoryListener implementation="ee.carlrobert.codegpt.CodeGPTEditorFactoryListener"/>
-        <applicationConfigurable id="settings.codegpt" parentId="tools" displayName="ProxyAI"
+        <applicationConfigurable id="settings.codegpt" parentId="tools" displayName="Paysafe CodePilot"
             instance="ee.carlrobert.codegpt.settings.GeneralSettingsConfigurable"/>
         <applicationConfigurable id="settings.codegpt.services" parentId="settings.codegpt" displayName="Providers"
           instance="ee.carlrobert.codegpt.settings.service.ServiceConfigurable"/>
