@@ -5,14 +5,18 @@ import com.intellij.openapi.vfs.readText
 import ee.carlrobert.codegpt.EncodingManager
 import ee.carlrobert.codegpt.ReferencedFile
 import ee.carlrobert.codegpt.completions.*
+import ee.carlrobert.codegpt.conversations.Conversation
 import ee.carlrobert.codegpt.conversations.ConversationsState
 import ee.carlrobert.codegpt.psistructure.models.ClassStructure
 import ee.carlrobert.codegpt.settings.configuration.ConfigurationSettings
 import ee.carlrobert.codegpt.settings.configuration.ConfigurationSettings.Companion.getState
 import ee.carlrobert.codegpt.settings.prompts.CoreActionsState
+import ee.carlrobert.codegpt.settings.prompts.FilteredPromptsService
 import ee.carlrobert.codegpt.settings.prompts.PromptsSettings
 import ee.carlrobert.codegpt.settings.prompts.addProjectPath
-import ee.carlrobert.codegpt.settings.service.openai.OpenAISettings
+import ee.carlrobert.codegpt.settings.service.FeatureType
+import ee.carlrobert.codegpt.settings.service.ModelSelectionService
+import ee.carlrobert.codegpt.ui.textarea.ConversationTagProcessor
 import ee.carlrobert.codegpt.util.file.FileUtil.getImageMediaType
 import ee.carlrobert.llm.client.openai.completion.OpenAIChatCompletionModel.*
 import ee.carlrobert.llm.client.openai.completion.request.*
@@ -24,7 +28,7 @@ import java.nio.file.Path
 class OpenAIRequestFactory : CompletionRequestFactory {
 
     override fun createChatRequest(params: ChatCompletionParameters): OpenAIChatCompletionRequest {
-        val model = service<OpenAISettings>().state.model
+        val model = ModelSelectionService.getInstance().getModelForFeature(FeatureType.CHAT)
         val configuration = service<ConfigurationSettings>().state
         val requestBuilder: OpenAIChatCompletionRequest.Builder =
             OpenAIChatCompletionRequest.Builder(buildOpenAIMessages(model, params))
@@ -40,15 +44,14 @@ class OpenAIRequestFactory : CompletionRequestFactory {
         } else {
             requestBuilder.setTemperature(configuration.temperature.toDouble())
         }
-
         return requestBuilder.build()
     }
 
     override fun createEditCodeRequest(params: EditCodeCompletionParameters): OpenAIChatCompletionRequest {
-        val model = service<OpenAISettings>().state.model
+        val model = ModelSelectionService.getInstance().getModelForFeature(FeatureType.EDIT_CODE)
         val prompt = "Code to modify:\n${params.selectedText}\n\nInstructions: ${params.prompt}"
-        val systemPrompt = service<PromptsSettings>().state.coreActions.editCode.instructions
-            ?: CoreActionsState.DEFAULT_EDIT_CODE_PROMPT
+        val systemPrompt =
+            service<FilteredPromptsService>().getFilteredEditCodePrompt(params.chatMode)
         if (isReasoningModel(model)) {
             return buildBasicO1Request(model, prompt, systemPrompt, stream = true)
         }
@@ -56,19 +59,19 @@ class OpenAIRequestFactory : CompletionRequestFactory {
     }
 
     override fun createAutoApplyRequest(params: AutoApplyParameters): CompletionRequest {
-        val model = service<OpenAISettings>().state.model
-        val systemPrompt = service<PromptsSettings>().state.coreActions.autoApply.instructions
-            ?: CoreActionsState.DEFAULT_AUTO_APPLY_PROMPT
+        val model = ModelSelectionService.getInstance().getModelForFeature(FeatureType.AUTO_APPLY)
+        val systemPrompt =
+            service<FilteredPromptsService>().getFilteredAutoApplyPrompt(params.chatMode)
+                .replace("{{changes_to_merge}}", CompletionRequestUtil.formatCode(params.source))
+                .replace(
+                    "{{destination_file}}",
+                    CompletionRequestUtil.formatCode(
+                        params.destination.readText(),
+                        params.destination.path
+                    )
+                )
+        val prompt = "Merge the following changes to the destination file."
 
-        val prompt = buildString {
-            append("Source:\n")
-            append("${CompletionRequestUtil.formatCode(params.source)}\n\n")
-            append("Destination:\n")
-            val destination = params.destination
-            append(
-                "${CompletionRequestUtil.formatCode(destination.readText(), destination.path)}\n"
-            )
-        }
         if (isReasoningModel(model)) {
             return buildBasicO1Request(model, prompt, systemPrompt, stream = true)
         }
@@ -76,7 +79,8 @@ class OpenAIRequestFactory : CompletionRequestFactory {
     }
 
     override fun createCommitMessageRequest(params: CommitMessageCompletionParameters): OpenAIChatCompletionRequest {
-        val model = service<OpenAISettings>().state.model
+        val model =
+            ModelSelectionService.getInstance().getModelForFeature(FeatureType.COMMIT_MESSAGE)
         val (gitDiff, systemPrompt) = params
         if (isReasoningModel(model)) {
             return buildBasicO1Request(model, gitDiff, systemPrompt, stream = true)
@@ -85,7 +89,7 @@ class OpenAIRequestFactory : CompletionRequestFactory {
     }
 
     override fun createLookupRequest(params: LookupCompletionParameters): OpenAIChatCompletionRequest {
-        val model = service<OpenAISettings>().state.model
+        val model = ModelSelectionService.getInstance().getModelForFeature(FeatureType.LOOKUP)
         val (prompt) = params
         if (isReasoningModel(model)) {
             return buildBasicO1Request(
@@ -103,7 +107,13 @@ class OpenAIRequestFactory : CompletionRequestFactory {
 
     companion object {
         fun isReasoningModel(model: String?) =
-            listOf(O_3_MINI.code, O_1_MINI.code, O_1_PREVIEW.code).contains(model)
+            listOf(
+                O_4_MINI.code,
+                O_3.code,
+                O_3_MINI.code,
+                O_1_MINI.code,
+                O_1_PREVIEW.code
+            ).contains(model)
 
         fun buildBasicO1Request(
             model: String,
@@ -135,12 +145,14 @@ class OpenAIRequestFactory : CompletionRequestFactory {
             model: String?,
             callParameters: ChatCompletionParameters,
             referencedFiles: List<ReferencedFile>? = null,
+            conversationsHistory: List<Conversation>? = null,
             psiStructure: Set<ClassStructure>? = null
         ): List<OpenAIChatCompletionMessage> {
             val messages = buildOpenAIChatMessages(
                 model = model,
                 callParameters = callParameters,
                 referencedFiles = referencedFiles ?: callParameters.referencedFiles,
+                conversationsHistory = conversationsHistory ?: callParameters.history,
                 psiStructure = psiStructure,
             )
 
@@ -178,6 +190,7 @@ class OpenAIRequestFactory : CompletionRequestFactory {
             model: String?,
             callParameters: ChatCompletionParameters,
             referencedFiles: List<ReferencedFile>? = null,
+            conversationsHistory: List<Conversation>? = null,
             psiStructure: Set<ClassStructure>? = null
         ): MutableList<OpenAIChatCompletionMessage> {
             val message = callParameters.message
@@ -187,18 +200,22 @@ class OpenAIRequestFactory : CompletionRequestFactory {
             val selectedPersona = service<PromptsSettings>().state.personas.selectedPersona
             if (callParameters.conversationType == ConversationType.DEFAULT && !selectedPersona.disabled) {
                 val sessionPersonaDetails = callParameters.personaDetails
-                if (sessionPersonaDetails == null) {
-                    messages.add(
-                        OpenAIChatCompletionStandardMessage(
-                            role,
-                            selectedPersona.instructions?.addProjectPath()
-                        )
-                    )
+                val instructions = sessionPersonaDetails?.instructions?.addProjectPath()
+                    ?: service<FilteredPromptsService>().getFilteredPersonaPrompt(callParameters.chatMode)
+                        .addProjectPath()
+                val history = if (conversationsHistory.isNullOrEmpty()) {
+                    ""
                 } else {
+                    conversationsHistory.joinToString("\n\n") {
+                        ConversationTagProcessor.formatConversation(it)
+                    }
+                }
+
+                if (instructions.isNotEmpty()) {
                     messages.add(
                         OpenAIChatCompletionStandardMessage(
                             role,
-                            sessionPersonaDetails.instructions.addProjectPath()
+                            instructions + "\n" + history
                         )
                     )
                 }

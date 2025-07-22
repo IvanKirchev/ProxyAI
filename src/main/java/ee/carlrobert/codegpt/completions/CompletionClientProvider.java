@@ -14,6 +14,7 @@ import ee.carlrobert.llm.client.anthropic.ClaudeClient;
 import ee.carlrobert.llm.client.codegpt.CodeGPTClient;
 import ee.carlrobert.llm.client.google.GoogleClient;
 import ee.carlrobert.llm.client.llama.LlamaClient;
+import ee.carlrobert.llm.client.mistral.MistralClient;
 import ee.carlrobert.llm.client.ollama.OllamaClient;
 import ee.carlrobert.llm.client.openai.OpenAIClient;
 import java.net.InetSocketAddress;
@@ -48,16 +49,9 @@ public class CompletionClientProvider {
 
   public static LlamaClient getLlamaClient() {
     var llamaSettings = LlamaSettings.getCurrentState();
-    var builder = new LlamaClient.Builder()
-        .setPort(llamaSettings.getServerPort());
-    if (!llamaSettings.isRunLocalServer()) {
-      builder.setHost(llamaSettings.getBaseHost());
-      String apiKey = getCredential(CredentialKey.LlamaApiKey.INSTANCE);
-      if (apiKey != null && !apiKey.isBlank()) {
-        builder.setApiKey(apiKey);
-      }
-    }
-    return builder.build(getDefaultClientBuilder());
+    return new LlamaClient.Builder()
+        .setPort(llamaSettings.getServerPort())
+        .build(getDefaultClientBuilder());
   }
 
   public static OllamaClient getOllamaClient() {
@@ -78,6 +72,10 @@ public class CompletionClientProvider {
   public static GoogleClient getGoogleClient() {
     return new GoogleClient.Builder(getCredential(CredentialKey.GoogleApiKey.INSTANCE))
         .build(getDefaultClientBuilder());
+  }
+
+  public static MistralClient getMistralClient() {
+    return new MistralClient(getCredential(CredentialKey.MistralApiKey.INSTANCE), getDefaultClientBuilder());
   }
 
   public static OkHttpClient.Builder getDefaultClientBuilder() {

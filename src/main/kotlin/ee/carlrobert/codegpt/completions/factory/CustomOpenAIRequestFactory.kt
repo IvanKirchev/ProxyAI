@@ -6,6 +6,7 @@ import ee.carlrobert.codegpt.completions.BaseRequestFactory
 import ee.carlrobert.codegpt.completions.ChatCompletionParameters
 import ee.carlrobert.codegpt.credentials.CredentialsStore.CredentialKey
 import ee.carlrobert.codegpt.credentials.CredentialsStore.getCredential
+import ee.carlrobert.codegpt.settings.service.FeatureType
 import ee.carlrobert.codegpt.settings.service.custom.CustomServiceChatCompletionSettingsState
 import ee.carlrobert.codegpt.settings.service.custom.CustomServicesSettings
 import ee.carlrobert.llm.client.openai.completion.request.OpenAIChatCompletionMessage
@@ -26,7 +27,13 @@ class CustomOpenAIRequestFactory : BaseRequestFactory() {
         activeService.chatCompletionSettings.headers["request_id"] = params.requestId.toString()
         val request = buildCustomOpenAIChatCompletionRequest(
             activeService.chatCompletionSettings,
-            OpenAIRequestFactory.buildOpenAIMessages(null, params, params.referencedFiles, params.psiStructure),
+            OpenAIRequestFactory.buildOpenAIMessages(
+                null,
+                params,
+                params.referencedFiles,
+                params.history,
+                params.psiStructure
+            ),
             true,
             getCredential(CredentialKey.CustomServiceApiKey(activeService.name.orEmpty()))
         )
@@ -37,11 +44,13 @@ class CustomOpenAIRequestFactory : BaseRequestFactory() {
         systemPrompt: String,
         userPrompt: String,
         maxTokens: Int,
-        stream: Boolean
+        stream: Boolean,
+        featureType: FeatureType
     ): CompletionRequest {
         val activeService = service<CustomServicesSettings>()
             .state
             .active
+
         val request = buildCustomOpenAIChatCompletionRequest(
             activeService.chatCompletionSettings,
             listOf(

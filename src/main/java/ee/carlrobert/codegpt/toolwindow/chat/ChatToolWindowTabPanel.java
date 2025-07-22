@@ -23,8 +23,7 @@ import ee.carlrobert.codegpt.conversations.ConversationService;
 import ee.carlrobert.codegpt.conversations.message.Message;
 import ee.carlrobert.codegpt.psistructure.PsiStructureProvider;
 import ee.carlrobert.codegpt.psistructure.models.ClassStructure;
-import ee.carlrobert.codegpt.settings.GeneralSettings;
-import ee.carlrobert.codegpt.settings.service.ServiceType;
+import ee.carlrobert.codegpt.settings.service.FeatureType;
 import ee.carlrobert.codegpt.telemetry.TelemetryAction;
 import ee.carlrobert.codegpt.toolwindow.chat.editor.actions.CopyAction;
 import ee.carlrobert.codegpt.toolwindow.chat.editor.actions.DislikeAction;
@@ -39,11 +38,13 @@ import ee.carlrobert.codegpt.toolwindow.ui.ChatToolWindowLandingPanel;
 import ee.carlrobert.codegpt.toolwindow.ui.ResponseMessagePanel;
 import ee.carlrobert.codegpt.toolwindow.ui.UserMessagePanel;
 import ee.carlrobert.codegpt.ui.OverlayUtil;
+import ee.carlrobert.codegpt.ui.textarea.ConversationTagProcessor;
 import ee.carlrobert.codegpt.ui.textarea.UserInputPanel;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.EditorTagDetails;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.FileTagDetails;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.FolderTagDetails;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.GitCommitTagDetails;
+import ee.carlrobert.codegpt.ui.textarea.header.tag.HistoryTagDetails;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.PersonaTagDetails;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.TagDetails;
 import ee.carlrobert.codegpt.ui.textarea.header.tag.TagManager;
@@ -104,7 +105,6 @@ public class ChatToolWindowTabPanel implements Disposable {
         psiStructureRepository);
     userInputPanel = new UserInputPanel(
         project,
-        conversation,
         totalTokensPanel,
         this,
         tagManager,
@@ -130,6 +130,10 @@ public class ChatToolWindowTabPanel implements Disposable {
 
   public Conversation getConversation() {
     return conversation;
+  }
+
+  public ChatSession getChatSession() {
+    return chatSession;
   }
 
   public TotalTokensDetails getTokenDetails() {
@@ -171,7 +175,9 @@ public class ChatToolWindowTabPanel implements Disposable {
         .conversationType(conversationType)
         .imageDetailsFromPath(CodeGPTKeys.IMAGE_ATTACHMENT_FILE_PATH.get(project))
         .referencedFiles(getReferencedFiles(selectedTags))
-        .psiStructure(psiStructure);
+        .history(getHistory(getSelectedTags()))
+        .psiStructure(psiStructure)
+        .chatMode(userInputPanel.getChatMode());
 
     findTagOfType(selectedTags, PersonaTagDetails.class)
         .ifPresent(tag -> builder.personaDetails(tag.getPersonaDetails()));
@@ -188,6 +194,32 @@ public class ChatToolWindowTabPanel implements Disposable {
         .filter(Objects::nonNull)
         .distinct()
         .map(ReferencedFile::from)
+        .toList();
+  }
+
+  private List<UUID> getConversationHistoryIds(List<? extends TagDetails> tags) {
+    return tags.stream()
+        .map(it -> {
+          if (it instanceof HistoryTagDetails tagDetails) {
+            return tagDetails.getConversationId();
+          }
+          return null;
+        })
+        .filter(Objects::nonNull)
+        .toList();
+  }
+
+  private List<Conversation> getHistory(List<? extends TagDetails> tags) {
+    return tags.stream()
+        .map(it -> {
+          if (it instanceof HistoryTagDetails tagDetails) {
+            return ConversationTagProcessor.Companion.getConversation(
+                tagDetails.getConversationId());
+          }
+          return null;
+        })
+        .filter(Objects::nonNull)
+        .distinct()
         .toList();
   }
 
@@ -354,7 +386,7 @@ public class ChatToolWindowTabPanel implements Disposable {
       UserMessagePanel userMessagePanel) {
     var responseContainer = (ChatMessageResponseBody) responseMessagePanel.getContent();
 
-    if (!CompletionRequestService.isRequestAllowed()) {
+    if (!CompletionRequestService.isRequestAllowed(FeatureType.CHAT)) {
       responseContainer.displayMissingCredential();
       return;
     }
@@ -406,6 +438,11 @@ public class ChatToolWindowTabPanel implements Disposable {
         messageBuilder.withReferencedFiles(referencedFiles);
       }
 
+      List<UUID> conversationHistoryIds = getConversationHistoryIds(appliedTags);
+      if (!conversationHistoryIds.isEmpty()) {
+        messageBuilder.withConversationHistoryIds(conversationHistoryIds);
+      }
+
       String attachedImagePath = CodeGPTKeys.IMAGE_ATTACHMENT_FILE_PATH.get(project);
       if (attachedImagePath != null) {
         messageBuilder.withImage(attachedImagePath);
@@ -431,10 +468,8 @@ public class ChatToolWindowTabPanel implements Disposable {
         JBUI.Borders.customLine(JBColor.border(), 1, 0, 0, 0),
         JBUI.Borders.empty(8)));
 
-    if (GeneralSettings.getSelectedService() != ServiceType.CODEGPT) {
-      panel.add(JBUI.Panels.simplePanel(totalTokensPanel)
-          .withBorder(JBUI.Borders.emptyBottom(8)), BorderLayout.NORTH);
-    }
+    panel.add(JBUI.Panels.simplePanel(totalTokensPanel)
+        .withBorder(JBUI.Borders.emptyBottom(8)), BorderLayout.NORTH);
     panel.add(userInputPanel, BorderLayout.CENTER);
     return panel;
   }
@@ -474,6 +509,7 @@ public class ChatToolWindowTabPanel implements Disposable {
     userMessagePanel.addReloadAction(() -> reloadMessage(
         ChatCompletionParameters.builder(conversation, message)
             .conversationType(ConversationType.DEFAULT)
+            .chatMode(userInputPanel.getChatMode())
             .build(),
         userMessagePanel));
     userMessagePanel.addDeleteAction(() -> removeMessage(message.getId(), conversation));

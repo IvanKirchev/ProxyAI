@@ -6,6 +6,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Kimi K2 model (ProxyAI)
+- Native Mistral client support
+- New Chat History UI/UX
+- Server and build logs for llama.cpp
+- Support for model per feature
+- Support for PSI analysis (Code Analyze) of added files
+
+### Updated
+
+- OpenAI and Google model selection
+
+### Fixed
+
+- llama.cpp server build
+
+### Reverted
+
+- Direct auto apply when similarity threshold is met
+
+## [3.4.4-241.1] - 2025-07-04
+
+### Added
+
+- Chat modes Ask/Edit/Agent
+- Support for conversation renaming
+
+### Fixed
+
+- NPE when loading state with null conversations
+- Internal error when virtual file is invalid
+- Auto Apply logic for larger files
+
+## [3.4.3-241.1] - 2025-06-26
+
+### Added
+
+- Conversations tag support
+- Support for changing models/providers in mid-conversation
+
+### Fixed
+
+- Issues where plugin silently connected to a wrong provider (related to a model/provider dep)
+- NPE issues with old Azure settings state
+
 ## [3.4.2-241.1] - 2025-06-06
 
 ### Fixed
@@ -1046,7 +1092,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `OPENAI_API_KEY` persistence, key is saved in the OS password safe from now on
 
-[Unreleased]: https://github.com/carlrobertoh/ProxyAI/compare/v3.4.2-241.1...HEAD
+[Unreleased]: https://github.com/carlrobertoh/ProxyAI/compare/v3.4.4-241.1...HEAD
+[3.4.4-241.1]: https://github.com/carlrobertoh/ProxyAI/compare/v3.4.3-241.1...v3.4.4-241.1
+[3.4.3-241.1]: https://github.com/carlrobertoh/ProxyAI/compare/v3.4.2-241.1...v3.4.3-241.1
 [3.4.2-241.1]: https://github.com/carlrobertoh/ProxyAI/compare/v3.4.1-241.1...v3.4.2-241.1
 [3.4.1-241.1]: https://github.com/carlrobertoh/ProxyAI/compare/v3.4.0-241.1...v3.4.1-241.1
 [3.4.0-241.1]: https://github.com/carlrobertoh/ProxyAI/compare/v3.3.0-241.1...v3.4.0-241.1
